@@ -1,0 +1,109 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Hive API example</title>
+</head>
+<body>
+
+<p class="form">
+  User <input name="username" type="text">
+  password <input name="password" type="password">
+  <button name="login">Log in</button>
+</p>
+
+<p class="form">
+  <button name="logout">Log out</button>
+  <button name="listDevices">List devices</button>
+</p>
+
+<script src="http://code.jquery.com/jquery-3.3.1.min.js"
+  integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+  crossorigin="anonymous"></script>
+
+<!-- script src="https://unpkg.com/axios/dist/axios.min.js"></script -->
+
+<script src="../dist/hive.js"></script>
+
+<script>
+(function (jQuery, Hive) {
+
+  var app = {};
+
+  var hive = new Hive();
+
+  var events = function () {
+
+    $("[name=listDevices]").on("click", function (event) {
+      hive.loadNodes()
+        .then(function (response) {
+          console.log('Nodes (devices)', hive.nodes);
+        });
+    });
+
+    $("[name=logout]").on("click", function (event) {
+      hive.logout()
+        .then(function (response) {
+          $('body').append("<div>Logged out</div>");
+        });
+      $('body').append("<div>Logging out</div>");
+    });
+
+    $("[name=login]").on("click", function (event) {
+      var $form = $(event.target).closest(".form");
+      var form = {};
+      $form.find('[name]').each(function () {
+        var $el = $(this);
+        form[$el.attr("name")] = $el.val();
+      });
+
+      hive.login(form.username, form.password)
+        .then(function (response) {
+          $('body').append("<div>Logged in</div>");
+        })
+        .catch(function (error) {
+          if (error.response) {
+            // The request was made and the server responded with a status code
+            // that falls out of the range of 2xx
+            // 400 errors
+            if (error.response.status == 401) {
+              $('body').append("<div>Unauthorized</div>");
+            } else if (error.response.data && error.response.data.errors && error.response.data.errors[0] && error.response.data.errors[0].code === "USERNAME_PASSWORD_ERROR") {
+              $('body').append("<div>Invalid login " + error.response.data.errors[0].title + "</div>");
+            } else if (error.response.data && error.response.data.errors && error.response.data.errors[0] && error.response.data.errors[0].code === "ACCOUNT_LOCKED") {
+              $('body').append("<div>Invalid login " + error.response.data.errors[0].title + "</div>");
+            } else {
+              $('body').append('<div>Error: '  + error.response.status + ' ' + error.response.statusText + '</div>');
+            }
+            console.log(error.response);
+            return true;
+            // return error.response;
+          } else if (error.request) {
+            // The request was made but no response was received
+            // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
+            // http.ClientRequest in node.js
+            console.log(error.request);
+          } else {
+            // Something happened in setting up the request that triggered an Error
+            console.log('Error', error.message);
+          }
+          console.log(error.config);
+        });
+      });
+      // $.ajax(request);
+  };
+
+  app.run = function () {
+    events();
+    $('body').append('This is Hive version ' + Hive.VERSION);
+  };
+
+  $(function () {
+    app.run();
+  });
+
+})(jQuery, Hive);
+</script>
+
+</body>
+</html>
