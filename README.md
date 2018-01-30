@@ -1,2 +1,5 @@
-# hive-api-js
-Hive heating API
+# Hive
+
+A wrapper for the Hive Home API.
+
+**Version 0.1.0**
