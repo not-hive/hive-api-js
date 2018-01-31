@@ -1,8 +1,19 @@
 {
+<<<<<<< HEAD
+  "name": "hive-home",
+  "version": "0.1.2",
+  "description": "A wrapper for the Hive Home API.",
+  "main": "src/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/paulbloomfield-uk/hive-api-js.git"
+  },
+=======
   "name": "hive",
   "version": "0.1.0",
   "description": "A wrapper for the Hive Home API.",
   "main": "src/index.js",
+>>>>>>> develop
   "scripts": {
     "test": "mocha test/specs"
   },

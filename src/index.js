@@ -168,7 +168,11 @@ var Hive = function () {
 };
 
 /** @var {string} Hive.VERSION Version number. */
+<<<<<<< HEAD
+Hive.VERSION = "0.1.2";
+=======
 Hive.VERSION = "0.1.0";
+>>>>>>> develop
 
 /** @function Hive.extend() Simple object extension. */
 Hive.extend = function () {
