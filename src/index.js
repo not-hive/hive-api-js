@@ -7,8 +7,6 @@
  * @license MIT.
  */
 
-"use strict";
-
 // dependencies
 var axios = require("axios");
 
@@ -20,11 +18,6 @@ var axios = require("axios");
 var Hive = function () {
 
   var that = this;
-
-  this.messages = {
-    INVALID_LOGIN: "INVALID_LOGIN",
-    ACCOUNT_LOCKED: "ACCOUNT_LOCKED",
-  };
 
   this.nodes = null;
   this.user = null;
@@ -49,13 +42,37 @@ var Hive = function () {
    * @param {string} path The path (relative to the base URL set for the client).
    * @param {object} data Key-value pairs to be sent as JSON data (or URL-encoded for GET request).
    * @param {object} options Options to set or override for this request.
+   * @return {Promise} Axios request promise chain.
    */
   this.request = function (method, path, data, options) {
+
     return client.request(Hive.extend({
       method: method,
       url: path,
       data: data,
-    }, options));
+    }, options))
+      .catch(function (error) {
+        if (!error.response) {
+          if (error.code === "ECONNABORTED") {
+            return [Hive.TIMEOUT, error];
+          } else if (error.message === "Network Error") {
+            return [Hive.NETWORK_ERROR, error];
+          }
+          return [error.message ? error.message : Hive.UNKNOWN_ERROR, error];
+        }
+        try {
+          var code = error.response.data.errors[0].code;
+          if (code === "USERNAME_PASSWORD_ERROR") {
+            return [Hive.INVALID_LOGIN, error];
+          } else if (code === "ACCOUNT_LOCKED") {
+            return [Hive.ACCOUNT_LOCKED, error];
+          } else {
+            return [code, error];
+          }
+        } catch (e) {
+          return [Hive.UNKNOWN_ERROR, error];
+        }
+      });
   };
 
   /**
@@ -66,17 +83,15 @@ var Hive = function () {
   this.loadNodes = function () {
     var request = this.getNodes();
 
-    request.then(function (response) {
+    return request.then(function (response) {
       that.nodes = response.data.nodes;
     });
-
-    return request;
   };
 
   /**
    * Make a get nodes request.
    * 
-   * @return {object} Axios request promise.
+   * @return {Promise} Axios request promise.
    */
   this.getNodes = function () {  
     return this.request("GET", "nodes");
@@ -87,7 +102,7 @@ var Hive = function () {
    * 
    * @param  {object} session API response session data.
    */
-  var login = function (session) {
+  var registerSession = function (session) {
     that.user = {
       id: session.userId,
       username: session.username,
@@ -109,7 +124,7 @@ var Hive = function () {
    * 
    * @param  {string} username The user name (email) to log in.
    * @param  {string} password Plain text password.
-   * @return {object} Axios request promise.
+   * @return {Promise} Hive request promise.
    */
   this.login = function (username, password) {
 
@@ -119,35 +134,21 @@ var Hive = function () {
     }]};
     logout();
 
-    var request = this.request("POST", "auth/sessions", data);
-
-    request.then(function (response) {
-      login(response.data.sessions[0]);
-    });
-
-    request.catch(function (error) {
-      that.user = null;
-      try {
-        var code = error.response.data.errors[0].code;
-        if (code === "USERNAME_PASSWORD_ERROR") {
-          // deal with invalid username/password
-          that.user = {
-            error: that.messages.INVALID_LOGIN,
-          };
-        } else if (code === "ACCOUNT_LOCKED") {
-          // deal with account locked
-          that.user = {
-            error: that.messages.ACCOUNT_LOCKED,
-          };
-        }
-      } catch (e) {
-        // empty block
-      }
-      return error;
-      // return error.response;
-    });
-
-    return request;
+    return this.request("POST", "auth/sessions", data)
+      .then(function (response) {
+        // Extract and normalize the data from the response.
+        var session = response.data.sessions[0];
+        response = [{
+          userId: session.userId,
+          username: session.username,
+          sessionId: session.sessionId
+        }, response];
+        return response;
+      })
+      .then(function (response) {
+        registerSession(response[0]);
+        return response;
+      });
   };
 
   /**
@@ -169,6 +170,12 @@ var Hive = function () {
 
 /** @var {string} Hive.VERSION Version number. */
 Hive.VERSION = "0.1.2";
+
+Hive.ACCOUNT_LOCKED ="Account locked";
+Hive.INVALID_LOGIN = "Invalid login";
+Hive.NETWORK_ERROR = "Network error";
+Hive.TIMEOUT = "Timeout";
+Hive.UNKNOWN_ERROR = "Unknown error";
 
 /** @function Hive.extend() Simple object extension. */
 Hive.extend = function () {
