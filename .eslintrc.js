@@ -3,29 +3,10 @@ module.exports = {
     "browser": true,
     "node": true
   },
-  "extends": "eslint:recommended",
+  "extends": "standard",
     "rules": {
-      "indent": [
-        "error",
-        2
-      ],
-      "linebreak-style": [
-        "error",
-        "unix"
-      ],
-      "no-console": [
-        "warn",
-      ],
-      "no-unused-vars": [
-        "warn",
-      ],
-      "quotes": [
-        "error",
-        "double"
-      ],
-      "semi": [
-        "error",
-        "always"
+      "comma-dangle": [
+        "off"
       ]
   }
 };
