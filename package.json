@@ -1,6 +1,6 @@
 {
   "name": "hive-home",
-  "version": "0.2.0",
+  "version": "0.9.0-dev",
   "description": "A wrapper for the Hive Home API.",
   "main": "src/index.js",
   "repository": {

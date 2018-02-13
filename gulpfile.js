@@ -15,44 +15,44 @@
 
 // ## Dependencies
 
-var package = require('./package.json');
+var packageJson = require('./package.json')
 
 // - General dependencies.
-var gulp = require('gulp');
-// var concat = require('gulp-concat');
-var rename = require('gulp-rename');
+var gulp = require('gulp')
+// var concat = require('gulp-concat')
+var rename = require('gulp-rename')
 
 // - Dependency for `argv` terminal arguments.
-// var argv = require('yargs');
+// var argv = require('yargs')
 
 // - Dependency for `clean` task.
-var clean = require('gulp-clean');
+var clean = require('gulp-clean')
 
 // - Dependency for `lint` task.
-var eslint = require('gulp-eslint');
+var eslint = require('gulp-eslint')
 
 // - Dependency for `test` task.
-var mocha = require('gulp-mocha');
+var mocha = require('gulp-mocha')
 
 // - Dependencies for `scripts` task.
-var browserify = require('browserify');
-var source = require('vinyl-source-stream');
-var buffer = require('vinyl-buffer');
-var uglify = require('gulp-uglify');
-var sourcemaps = require('gulp-sourcemaps');
-// var log = require('gulplog');
+var browserify = require('browserify')
+var source = require('vinyl-source-stream')
+var buffer = require('vinyl-buffer')
+var uglify = require('gulp-uglify')
+var sourcemaps = require('gulp-sourcemaps')
+// var log = require('gulplog')
 
 // ## Configuration
-var config = {};
+var config = {}
 
 // File name.
-config.name = package.name;
+config.name = packageJson.name
 
 // Module name (capitalized first letter).
-config.moduleName = package.name.charAt(0).toUpperCase() + package.name.slice(1);
+config.moduleName = packageJson.name.charAt(0).toUpperCase() + packageJson.name.slice(1)
 
 // To build for production, run with `gulp --prod`.
-// config.production = argv.prod ? argv.prod : false;
+// config.production = argv.prod ? argv.prod : false
 
 // Paths
 config.paths = {
@@ -60,7 +60,7 @@ config.paths = {
   scripts: ['src/index.js', 'src/**/index.js', 'src/**/*.js'],
   tests: ['test/specs/**/*.test.js'],
   dest: 'dist',
-};
+}
 
 // ## Tasks
 
@@ -68,9 +68,9 @@ config.paths = {
 // Clean build directories.
 gulp.task('clean', function () {
   return gulp.src(config.paths.dest, {read: false})
-    //TODO: Refactor with `del`.
-    .pipe(clean());
-});
+    // @TODO: Refactor with `del`.
+    .pipe(clean())
+})
 
 // ### `scripts` task
 // Build js.
@@ -80,7 +80,7 @@ gulp.task('scripts', ['lint', 'test'], function () {
     entries: config.paths.entry,
     debug: true,
     standalone: config.moduleName,
-  });
+  })
 
   return b.bundle()
     .pipe(source(config.paths.entry))
@@ -92,8 +92,8 @@ gulp.task('scripts', ['lint', 'test'], function () {
     .pipe(rename(config.name + '.min.js'))
     .pipe(uglify())
     .pipe(sourcemaps.write(''))
-    .pipe(gulp.dest(config.paths.dest));
-});
+    .pipe(gulp.dest(config.paths.dest))
+})
 
 // ### `lint` task
 // Lint scripts using eslint.
@@ -101,20 +101,20 @@ gulp.task('lint', function () {
   return gulp.src(config.paths.scripts)
     .pipe(eslint())
     .pipe(eslint.format())
-    .pipe(eslint.failAfterError());
-});
+    .pipe(eslint.failAfterError())
+})
 
 // ### `test` task
 // Test scripts using Mocha.
 gulp.task('test', function () {
   gulp.src(config.paths.tests, {read: false})
-    .pipe(mocha());
-});
+    .pipe(mocha())
+})
 
 // ### `watch` task
 gulp.task('watch', function () {
-  gulp.watch(config.paths.scripts, ['scripts']);
-});
+  gulp.watch(config.paths.scripts, ['scripts'])
+})
 
 // ### `default` task
-gulp.task('default', ['clean', 'scripts', 'watch']);
+gulp.task('default', ['clean', 'scripts', 'watch'])
