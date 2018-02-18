@@ -23,6 +23,10 @@
 
 <!-- script src="https://unpkg.com/axios/dist/axios.min.js"></script -->
 
+<script>
+window.Promise || document.write('<script src="https://cdn.jsdelivr.net/npm/promise-polyfill@7/dist/polyfill.min.js"></scr' + 'ipt>');
+</script>
+
 <script src="../dist/hive-home.js"></script>
 
 <script>
@@ -60,35 +64,12 @@
 
       hive.login(form.username, form.password)
         .then(function (response) {
+          console.log('Logged in', response);
           $('body').append("<div>Logged in</div>");
         })
         .catch(function (error) {
-          if (error.response) {
-            // The request was made and the server responded with a status code
-            // that falls out of the range of 2xx
-            // 400 errors
-            if (error.response.status == 401) {
-              $('body').append("<div>Unauthorized</div>");
-            } else if (error.response.data && error.response.data.errors && error.response.data.errors[0] && error.response.data.errors[0].code === "USERNAME_PASSWORD_ERROR") {
-              $('body').append("<div>Invalid login " + error.response.data.errors[0].title + "</div>");
-            } else if (error.response.data && error.response.data.errors && error.response.data.errors[0] && error.response.data.errors[0].code === "ACCOUNT_LOCKED") {
-              $('body').append("<div>Invalid login " + error.response.data.errors[0].title + "</div>");
-            } else {
-              $('body').append('<div>Error: '  + error.response.status + ' ' + error.response.statusText + '</div>');
-            }
-            console.log(error.response);
-            return true;
-            // return error.response;
-          } else if (error.request) {
-            // The request was made but no response was received
-            // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
-            // http.ClientRequest in node.js
-            console.log(error.request);
-          } else {
-            // Something happened in setting up the request that triggered an Error
-            console.log('Error', error.message);
-          }
-          console.log(error.config);
+          console.log('Error', error)
+          throw error
         });
       });
       // $.ajax(request);
