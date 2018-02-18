@@ -17,6 +17,8 @@ var axios = require('axios')
 
 var Hive = function () {
 
+  var _this = this
+
   var cache = {}
 
   // var cacheMeta = {}
@@ -70,6 +72,8 @@ var Hive = function () {
       if (error.response) {
         if (error.response.status === 401) {
           e = getError('NOT_AUTHENTICATED')
+        } else if (error.response.status === 405) {
+          e = getError('METHOD_NOT_ALLOWED')
         } else {
           var code = error.response.data.errors[0].code
           if (code === 'USERNAME_PASSWORD_ERROR') {
@@ -93,7 +97,7 @@ var Hive = function () {
         e = getError('REQUEST_NOT_SENT')
       }
     } catch (ee) {
-      e = getError('UNKNOWN_ERROR')
+      e = getError(error.message ? error.message : 'UNKNOWN_ERROR')
     }
     // Now throw the error so the promise continues to be rejected.
     throw e
@@ -123,8 +127,8 @@ var Hive = function () {
    *
    * @param  {object} session API response session data.
    */
-  var registerSession = function (session) {
-    client.defaults.headers['X-Omnia-Access-Token'] = session.sessionId
+  var registerSession = function (user) {
+    client.defaults.headers['X-Omnia-Access-Token'] = user.sessionId
   }
 
   /**
@@ -215,9 +219,10 @@ var Hive = function () {
    *
    * @param  {string} username The user name (email) to log in.
    * @param  {string} password Plain text password.
+   * @param  {object} options  Request options.
    * @return {Promise} Hive request promise.
    */
-  this.login = function (username, password) {
+  this.login = function (username, password, options) {
     var data = {sessions: [{
       username: username,
       password: password,
@@ -227,18 +232,10 @@ var Hive = function () {
 
     return this.request('POST', 'auth/sessions', data)
       .then(function (response) {
-        // Extract and normalize the data from the response.
-        var session = response.data.sessions[0]
-        response = [{
-          userId: session.userId,
-          username: session.username,
-          sessionId: session.sessionId
-        }, response]
-        return response
-      })
-      .then(function (response) {
-        registerSession(response[0])
-        return response
+        var user = response.data.sessions[0]
+        registerSession(user)
+        _this.user = user
+        return normalizeResponse(user, response, options)
       })
       /* eslint handle-callback-err:0 */
       .catch(function (error) {
@@ -251,7 +248,8 @@ var Hive = function () {
    * Send a log out request and set the user to logged out.
    */
   this.logout = function () {
-    var path = 'auth/sessions/' + ((this.user && this.user.session) ? this.user.session.sessionId : '')
+    console.log(this.user)
+    var path = 'auth/sessions/' + ((this.user) ? this.user.sessionId : '')
     return this.request('DELETE', path, null, {
       validateStatus: function (status) {
         // treat Unauthorized etc. as successful
@@ -267,7 +265,9 @@ var Hive = function () {
 }
 
 Hive.ACCOUNT_LOCKED = 'Account locked'
+Hive.NOT_PERMITTED = 'Not permitted'
 Hive.INVALID_LOGIN = 'Invalid login'
+Hive.METHOD_NOT_ALLOWED = 'Method not allowed'
 Hive.NETWORK_ERROR = 'Network error'
 Hive.NOT_AUTHENTICATED = 'Not authenticated'
 Hive.REQUEST_NOT_SENT = 'Request not sent'
