@@ -10,6 +10,10 @@ module.exports = {
       'comma-dangle': [
         'off'
       ],
+      'operator-linebreak': [
+        'error',
+        'before'
+      ],
       'padded-blocks': [
         'error', {
           classes: 'always',

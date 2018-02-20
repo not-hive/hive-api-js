@@ -1,27 +1,24 @@
-/*!
- * Hive heating system API.
- *
- * The api is documented at https://api-prod.bgchprod.info/omnia/swagger-ui.html
- *
- * @copyright Copyright © 2018 Paul Bloomfield.
- * @license MIT.
- */
-
+// # Hive heating system API.
+// Copyright © 2018 Paul Bloomfield.
+// MIT License.
+//
+// The api is documented at https://api-prod.bgchprod.info/omnia/swagger-ui.html
+//
+// @TODO Holiday mode.
+// @TODO Changing anything!
+// @TODO History.
 /**
- * The Hive class.
+ * Hive class.
  *
- * @class
- */
-
-var axios = require('axios')
-
+ * @class Hive
+*/
 var Hive = function () {
 
   var _this = this
 
   var cache = {}
 
-  // var cacheMeta = {}
+  var axios = require('axios')
 
   /** @var {Axios} Hive~client Axios instance. */
   var client = axios.create({
@@ -39,7 +36,7 @@ var Hive = function () {
    *
    * @function Hive~requestError
    * @param {Error} error Error thrown.
-   * @return {[string, Error]} Text describing the error and the error thrown.
+   * @return {array} Text describing the error and the error thrown.
    */
   var normalizeError = function (error) {
     var getError = function (code) {
@@ -122,6 +119,341 @@ var Hive = function () {
     return data
   }
 
+  var getReportedValue = function (feature, property, defaultValue) {
+    if (property == null) {
+      return defaultValue
+    }
+    return feature && feature[property] ? feature[property].reportedValue : defaultValue
+  }
+
+  var getReportedValues = function (feature, properties, props, defaultValue) {
+    // Create an empty object if not given one to add to.
+    if (props == null) {
+      props = {}
+    }
+    // If the .
+    if (feature == null) {
+      feature = {}
+    }
+    for (var key in properties) {
+      props[key] = feature[key] ? feature[key].reportedValue : defaultValue
+    }
+    return props
+  }
+
+  /**
+   * Implement a gerneric device.
+   * @class Hive.Device
+   */
+  var Device = function (node) {
+    this.initialize(node)
+    this.type = 'Device'
+  }
+
+  var DeviceProto = Device.prototype
+
+  DeviceProto.initialize = function (node) {
+    this.node = node
+    this.id = node.id
+    this.name = node.name
+  }
+
+  Device.fromNode = function (node) {
+    if (!node.nodeType) {
+      return new Device(node)
+    } else if (node.nodeType === 'http://alertme.com/schema/json/node.class.hub.json#') {
+      return new Hub(node)
+    } else if (node.nodeType === 'http://alertme.com/schema/json/node.class.thermostatui.json#') {
+      return new ThermostatUi(node)
+    } else if (node.nodeType === 'http://alertme.com/schema/json/node.class.thermostat.json#'
+      && node.features && node.features.heating_thermostat_v1) {
+      // Note the buggy use of the same nodeType for a receiver by Hive.
+      return new Thermostat(node)
+    } else if (node.nodeType === 'http://alertme.com/schema/json/node.class.thermostat.json#') {
+      return new Receiver(node)
+    } else {
+      return new Device(node)
+    }
+  }
+
+  // ### GET BATTERY STATUS
+  // * `Device.getBattery(node)`
+  // * `this.getBattery()`
+  // Gets information about the battery status for a node.
+  //
+  // Returns an object
+  // * `batteryLevel (string)` Percentage (without %) battery level.
+  // * `batteryState (string)` @TODO.
+  // * `batteryVoltage (string}` @TODO.
+  Device.getBattery = function (node) {
+    var features = node.features ? node.features : {}
+    return getReportedValues(features.battery_device_v1, {
+      batteryLevel: 'batteryLevel',
+      batteryState: 'batteryState',
+      batteryVoltage: 'batteryVoltage',
+    })
+  }
+
+  Device.getBoost = function (node) {
+    var features = node.features ? node.features : {}
+    var boost = getReportedValue(features.heating_thermostat_v1, 'temporaryOperatingModeOverride')
+    if (boost !== 'TRANSIENT') {
+      return false
+    }
+    boost = getReportedValues(features.transient_mode_v1, {
+      actions: 'actions',
+      duration: 'duration', // seconds
+      startDateTime: 'startDateTime', // ISO format e.g. 2018-02-19T15:38:49.972+0000
+      endDateTime: 'endDateTime',
+    })
+    if (boost.actions[0].attribute === 'targetHeatTemperature') {
+      boost.targetTemperature = boost.actions[0].value
+    } else {
+      boost.targetAttribute = boost.actions[0].attribute
+      boost.targetValue = boost.actions[0].value
+    }
+    delete boost.actions
+    return boost
+  }
+
+  Device.getCurrentTemperature = function (node) {
+    var features = node.features ? node.features : {}
+    return getReportedValue(features.temperature_sensor_v1, 'temperature')
+  }
+
+  Device.getEthernetInfo = function (node) {
+    var features = node.features ? node.features : {}
+    return getReportedValues(features.ethernet_device_v1, {
+      ipAddress: 'internalIPAddress',
+      macAddress: 'macAddress',
+    })
+  }
+
+  Device.getHubStatus = function (node) {
+    var features = node.features ? node.features : {}
+    return getReportedValues(features.hive_hub_v1, {
+      state: 'devicesState', // eg UP
+      server: 'serverConnectionState', // eg CONNECTED
+      connection: 'connection', // eg ETHERNET
+      ethernet: 'ethernetConnectionState', // eg CONNECTED
+      uptime: 'uptime', // seconds
+    })
+  }
+
+  var parseSchedule = function (setpoints) {
+    var days = {
+      1: 'Mon',
+      2: 'Tue',
+      3: 'Wed',
+      4: 'Thu',
+      5: 'Fri',
+      6: 'Sat',
+      7: 'Sun',
+    }
+    var schedule = {
+      Mon: [],
+      Tue: [],
+      Wed: [],
+      Thu: [],
+      Fri: [],
+      Sat: [],
+      Sun: [],
+    }
+    var len = setpoints.length
+    var point
+    for (var i = 0; i < len; i++) {
+      point = setpoints[i]
+      if (point.actions[0].value != null) {
+        schedule[days[point.dayIndex]].push([point.time, point.actions[0].value])
+      } else {
+        schedule[days[point.dayIndex]].push([point.time, null])
+      }
+    }
+    return schedule
+  }
+
+  Device.getFrostProtectTemperature = function (node) {
+    var features = node.features ? node.features : {}
+    return getReportedValue(features.frost_protect_v1, 'frostProtectTemperature')
+  }
+
+  Device.getHeatingSchedule = function (node) {
+    var features = node.features ? node.features : {}
+    var reported = getReportedValue(features.heating_thermostat_v1, 'heatSchedule')
+    var frostProtect = Device.getFrostProtectTemperature(node)
+    var schedule
+    if (reported && reported.setpoints) {
+      schedule = parseSchedule(reported.setpoints)
+    }
+    return {
+      schedule: schedule,
+      frostProtect: frostProtect,
+    }
+  }
+
+  Device.getHeatingStatus = function (node) {
+    var features = node.features ? node.features : {}
+    var status = getReportedValues(features.heating_thermostat_v1, {
+      mode: 'operatingMode', // SCHEDULE, MANUAL - set to OFF later
+      state: 'operatingState', // HEAT, OFF
+      targetTemperature: 'targetHeatTemperature',
+    })
+    // If the thermostat is set to OFF we need to override the reported values.
+    if (getReportedValue(features.on_off_device_v1, 'mode') === 'OFF') {
+      status.mode = 'OFF'
+      status.targetTemperature = Device.getFrostProtectTemperature(node)
+    }
+    return status
+  }
+
+  Device.getOnOff = function (node) {
+    var features = node.features ? node.features : {}
+    return getReportedValue(features.on_off_device_v1, 'mode') // ON or OFF
+  }
+
+  Device.getSignalStrength = function (node) {
+    var features = node.features ? node.features : {}
+    return getReportedValue(features.radio_device_v1, 'signalStrength')
+  }
+
+  Device.getTemperatureUnit = function (node) {
+    var features = node.features ? node.features : {}
+    return getReportedValue(features.thermostat_ui_v1, 'temperatureUnit')
+  }
+
+  Device.getInfo = function (node) {
+    var features = node.features ? node.features : {}
+    return getReportedValues(features.hive_hub_v1, {
+      state: 'devicesState', // eg UP
+      server: 'serverConnectionState', // eg CONNECTED
+      connection: 'connection', // eg ETHERNET
+      ethernet: 'ethernetConnectionState', // eg CONNECTED
+      uptime: 'uptime', // seconds
+    })
+  }
+
+  // Create Hub class with shortcuts inheriting from Device.
+  /**
+   * Implement a Hub device.
+   * @class Hive.Hub
+   * @extends Hive.Device
+   */
+  var Hub = Hive.Hub = function (node) {
+    this.initialize(node)
+    this.type = 'hub'
+
+    /**
+     * @method Hive.Hub#getEthernetInfo
+     * @return {object} Ethernet information for the Hub.
+     */
+    this.getEthernetInfo = function () {
+      return Device.getEthernetInfo(this.node)
+    }
+
+    this.getInfo = function () {
+      return Device.getInfo(this.node)
+    }
+
+  }
+  var HubProto = Hub.prototype = Object.create(DeviceProto)
+  HubProto.constructor = Hub
+
+  // Create Thermostat class with shortcuts inheriting from Device.
+  var Thermostat = Hive.Thermostat = function (node) {
+    this.initialize(node)
+    this.type = 'thermostat'
+
+    this.getBoost = function () {
+      return Device.getBoost(this.node)
+    }
+
+    this.getCurrentTemperature = function () {
+      return Device.getCurrentTemperature(this.node)
+    }
+
+    this.getHeatingStatus = function () {
+      return Device.getHeatingStatus(this.node)
+    }
+
+    this.getHeatingSchedule = function () {
+      return Device.getHeatingSchedule(this.node)
+    }
+
+    this.getOnOff = function () {
+      return Device.getOnOff(this.node)
+    }
+
+  }
+  var ThermostatProto = Thermostat.prototype = Object.create(DeviceProto)
+  ThermostatProto.constructor = Thermostat
+
+  // Create ThermostatUi class with shortcuts inheriting from Device.
+  var ThermostatUi = Hive.ThermostatUi = function (node) {
+    this.initialize(node)
+    this.type = 'thermostatUi'
+
+    this.getBattery = function () {
+      return Device.getBattery(this.node)
+    }
+
+    this.getSignalStrength = function () {
+      return Device.getSignalStrength(this.node)
+    }
+
+    this.getInfo = function () {
+      return Device.getInfo(this.node)
+    }
+
+    this.getTemperatureUnit = function () {
+      return Device.getTemperatureUnit(this.node)
+    }
+
+  }
+  var ThermostatUiProto = Hive.ThermostatUi.prototype = Object.create(DeviceProto)
+  ThermostatUiProto.constructor = ThermostatUi
+
+  // Create Receiver class with shortcuts inheriting from Device.
+  var Receiver = Hive.Receiver = function (node) {
+    this.initialize(node)
+    this.type = 'receiver'
+
+    this.getInfo = function () {
+      return Device.getInfo(this.node)
+    }
+
+    this.getSignalStrength = function () {
+      return Device.getSignalStrength(this.node)
+    }
+  }
+  var ReceiverProto = Hive.Receiver.prototype = Object.create(DeviceProto)
+  ReceiverProto.constructor = Receiver
+
+  var parseDevicesFromNodes = function (nodes) {
+    var device
+    var devices = {
+      hubs: [],
+      receivers: [],
+      thermostats: [],
+      thermostatUis: [],
+      other: [],
+    }
+    var typeMapping = {
+      hub: devices.hubs,
+      receiver: devices.receivers,
+      thermostat: devices.thermostats,
+      thermostatUi: devices.thermostatUis,
+    }
+    for (var i = 0; i < nodes.length; i++) {
+      device = Device.fromNode(nodes[i])
+      if (typeMapping[device.type]) {
+        typeMapping[device.type].push(device)
+      } else {
+        devices.other.push(device)
+      }
+    }
+    return devices
+  }
+
   /**
    * Private method to log a user in.
    *
@@ -144,23 +476,14 @@ var Hive = function () {
 
     if (cached == null || options.flush || options.nocache) {
       return this.getNodes(options).then(function (response) {
-        var devices = {}
-        var nodes = options.withResponse ? response[0] : response
-        var node
-        for (var i = 0; i < nodes.length; i++) {
-          node = nodes[i]
-          if (node.name === 'Hub') {
-            devices.hub = node
-          } else if (node.name === 'Receiver') {
-            devices.receiver = node
-          } else if (node.name === 'Thermostat') {
-            devices.thermostat = node
-          } else if (node.name === 'Thermostat 2') {
-            devices.thermostatUi = node
-          } else {
-            devices.other ? devices.other.push(node) : devices.other = [node]
-          }
+        var nodes
+        if (options.withResponse) {
+          nodes = response[0]
+          response = response[1]
+        } else {
+          nodes = response
         }
+        var devices = parseDevicesFromNodes(nodes)
         if (!options.nocache) {
           cache.devices = devices
         }
@@ -248,7 +571,6 @@ var Hive = function () {
    * Send a log out request and set the user to logged out.
    */
   this.logout = function () {
-    console.log(this.user)
     var path = 'auth/sessions/' + ((this.user) ? this.user.sessionId : '')
     return this.request('DELETE', path, null, {
       validateStatus: function (status) {
@@ -304,4 +626,11 @@ Hive.getInstance = function () {
 /** @var {string} Hive.VERSION Version number. */
 Hive.VERSION = '0.8.0-dev'
 
-module.exports = Hive
+if (typeof exports !== 'undefined') {
+  if (typeof module !== 'undefined' && module.exports) {
+    exports = module.exports = Hive
+  }
+  exports.Hive = Hive
+} else {
+  window.Hive = Hive
+}
