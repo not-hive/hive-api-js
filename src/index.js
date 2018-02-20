@@ -16,8 +16,6 @@ var Hive = function () {
 
   var _this = this
 
-  var cache = {}
-
   var axios = require('axios')
 
   /** @var {Axios} Hive~client Axios instance. */
@@ -332,6 +330,28 @@ var Hive = function () {
     })
   }
 
+  Device.setTargetTemperature = function (node, value) {
+    var path = 'nodes/' + node.id
+    var data = {
+      nodes: [{
+        features: {
+          heating_thermostat_v1: {
+            targetHeatTemperature: {
+              targetValue: 24 // value
+            }
+          }
+        }
+      }]
+    }
+    var hive = Hive.getInstance()
+    return hive.request('PUT', path, data)
+      .then((response) => {
+        console.log(response)
+      }).catch((error) => {
+        console.log(error)
+      })
+  }
+
   // Create Hub class with shortcuts inheriting from Device.
   /**
    * Implement a Hub device.
@@ -381,6 +401,10 @@ var Hive = function () {
 
     this.getOnOff = function () {
       return Device.getOnOff(this.node)
+    }
+
+    this.setTargetTemperature = function (value) {
+      return Device.setTargetTemperature(this.node, value)
     }
 
   }
@@ -472,26 +496,18 @@ var Hive = function () {
 
   this.getDevices = function (options) {
     options = options || {}
-    var cached = cache.devices
 
-    if (cached == null || options.flush || options.nocache) {
-      return this.getNodes(options).then(function (response) {
-        var nodes
-        if (options.withResponse) {
-          nodes = response[0]
-          response = response[1]
-        } else {
-          nodes = response
-        }
-        var devices = parseDevicesFromNodes(nodes)
-        if (!options.nocache) {
-          cache.devices = devices
-        }
-        return normalizeResponse(devices, response, options)
-      })
-    }
-    return Promise.resolve(cached).then(function (data) {
-      return normalizeResponse(data, null, options)
+    return this.getNodes(options).then(function (response) {
+      var nodes
+      if (options.withResponse) {
+        nodes = response[0]
+        response = response[1]
+      } else {
+        nodes = response
+      }
+      var devices = parseDevicesFromNodes(nodes)
+
+      return normalizeResponse(devices, response, options)
     })
   }
 
@@ -502,21 +518,12 @@ var Hive = function () {
    */
   this.getNodes = function (options) {
     options = options || {}
-    var cached = cache.nodes
 
-    if (cached == null || options.flush || options.nocache) {
-      return this.request('GET', 'nodes')
-        .then(function (response) {
-          var nodes = response.data.nodes
-          if (!options.nocache) {
-            cache.nodes = nodes
-          }
-          return normalizeResponse(nodes, response, options)
-        })
-    }
-    return Promise.resolve(cached).then(function (data) {
-      return normalizeResponse(data, null, options)
-    })
+    return this.request('GET', 'nodes')
+      .then(function (response) {
+        var nodes = response.data.nodes
+        return normalizeResponse(nodes, response, options)
+      })
   }
 
   /**
@@ -614,13 +621,13 @@ Hive.extend = function () {
   return target
 }
 
-Hive.instance = null
+var instance = null
 
 Hive.getInstance = function () {
-  if (Hive.instance == null) {
-    Hive.instance = new Hive()
+  if (instance == null) {
+    instance = new Hive()
   }
-  return Hive.instance
+  return instance
 }
 
 /** @var {string} Hive.VERSION Version number. */
