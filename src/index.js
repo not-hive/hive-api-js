@@ -749,7 +749,6 @@ Hive.extend = function () {
 var instance
 
 Hive.getInstance = function (options) {
-  console.log('Called', Date.now(), options)
   if (instance == null) {
     instance = new Hive(options)
   }
