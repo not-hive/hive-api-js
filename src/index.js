@@ -12,9 +12,15 @@
  *
  * @class Hive
 */
-var Hive = function () {
+var Hive = function (options) {
 
   var _this = this
+
+  var defaults = {
+    client: 'Unidentifed app using https://github.com/not-hive/hive-api-js v' + Hive.VERSION,
+  }
+
+  var settings = Hive.extend({}, defaults, options)
 
   var axios = require('axios')
 
@@ -25,7 +31,7 @@ var Hive = function () {
     headers: {
       'Content-Type': 'application/vnd.alertme.zoo-6.5+json',
       'Accept': 'application/vnd.alertme.zoo-6.5+json',
-      'X-Omnia-Client': 'Hive Web Dashboard',
+      'X-Omnia-Client': settings.client,
     },
   })
 
@@ -134,7 +140,7 @@ var Hive = function () {
       feature = {}
     }
     for (var key in properties) {
-      props[key] = feature[key] ? feature[key].reportedValue : defaultValue
+      props[key] = feature[properties[key]] ? feature[properties[key]].reportedValue : defaultValue
     }
     return props
   }
@@ -154,6 +160,15 @@ var Hive = function () {
     this.node = node
     this.id = node.id
     this.name = node.name
+  }
+
+  DeviceProto.reload = function (options) {
+    var _this = this
+    return Hive.getInstance().getNode(this.id, options)
+      .then(function (response) {
+        _this.node = response
+        return _this
+      })
   }
 
   Device.fromNode = function (node) {
@@ -215,8 +230,15 @@ var Hive = function () {
   }
 
   Device.getCurrentTemperature = function (node) {
-    var features = node.features ? node.features : {}
-    return getReportedValue(features.temperature_sensor_v1, 'temperature')
+    var report = node && node.features && node.features.temperature_sensor_v1
+      && node.features.temperature_sensor_v1.temperature
+    if (report) {
+      return {
+        value: report.reportedValue,
+        time: report.reportReceivedTime,
+      }
+    }
+    return {}
   }
 
   Device.getEthernetInfo = function (node) {
@@ -225,6 +247,10 @@ var Hive = function () {
       ipAddress: 'internalIPAddress',
       macAddress: 'macAddress',
     })
+  }
+
+  Device.getHistory = function (node, options) {
+    return Hive.getInstance().getTimeSeriesData(node.id, options)
   }
 
   Device.getHubStatus = function (node) {
@@ -293,9 +319,10 @@ var Hive = function () {
     var features = node.features ? node.features : {}
     var status = getReportedValues(features.heating_thermostat_v1, {
       mode: 'operatingMode', // SCHEDULE, MANUAL - set to OFF later
-      state: 'operatingState', // HEAT, OFF
+      isOn: 'operatingState', // HEAT, OFF
       targetTemperature: 'targetHeatTemperature',
     })
+    status.isOn = status.isOn === 'HEAT'
     // If the thermostat is set to OFF we need to override the reported values.
     if (getReportedValue(features.on_off_device_v1, 'mode') === 'OFF') {
       status.mode = 'OFF'
@@ -337,18 +364,18 @@ var Hive = function () {
         features: {
           heating_thermostat_v1: {
             targetHeatTemperature: {
-              targetValue: 24 // value
+              targetValue: value // value
             }
           }
         }
       }]
     }
-    var hive = Hive.getInstance()
-    return hive.request('PUT', path, data)
-      .then((response) => {
-        console.log(response)
-      }).catch((error) => {
-        console.log(error)
+    return Hive.getInstance().request('PUT', path, data)
+      .then(function (response) {
+        // @TODO parse response?
+      }).catch(function (error) {
+        // @TODO parse error?
+        throw error
       })
   }
 
@@ -397,6 +424,10 @@ var Hive = function () {
 
     this.getHeatingSchedule = function () {
       return Device.getHeatingSchedule(this.node)
+    }
+
+    this.getHistory = function (options) {
+      return Device.getHistory(this.node, options)
     }
 
     this.getOnOff = function () {
@@ -505,10 +536,29 @@ var Hive = function () {
       } else {
         nodes = response
       }
-      var devices = parseDevicesFromNodes(nodes)
+      var data = parseDevicesFromNodes(nodes)
 
-      return normalizeResponse(devices, response, options)
+      return normalizeResponse(data, response, options)
     })
+  }
+
+  /**
+   * Make a get node request.
+   *
+   * @return {Promise} A promise for a node.
+   */
+  this.getNode = function (id, options) {
+    options = options || {}
+
+    var params = {}
+
+    options.fields && (params.fields = options.fields)
+
+    return this.request('GET', 'nodes/' + id, params)
+      .then(function (response) {
+        var data = response.data.nodes[0]
+        return normalizeResponse(data, response, options)
+      })
   }
 
   /**
@@ -521,8 +571,76 @@ var Hive = function () {
 
     return this.request('GET', 'nodes')
       .then(function (response) {
-        var nodes = response.data.nodes
-        return normalizeResponse(nodes, response, options)
+        var data = response.data.nodes
+        return normalizeResponse(data, response, options)
+      })
+  }
+
+  /**
+   * Make a get channels request.
+   *
+   * @return {Promise} A promise for an array of channels.
+   */
+  this.getTimeSeries = function (options) {
+    options = options || {}
+
+    return this.request('GET', 'channels')
+      .then(function (response) {
+        var data = response.data.channels
+        return normalizeResponse(data, response, options)
+      })
+  }
+
+  /**
+   * Make a get channels request.
+   *
+   * @return {Promise} A promise for an array of channels.
+   */
+  this.getEvents = function (options) {
+    options = options || {}
+
+    var params = {}
+
+    if (options.limitPerDevice) {
+      params.limitPerDevice = options.limitPerDevice
+    } else if (options.limit) {
+      params.limit = options.limit
+    } else {
+      params.limitPerDevice = 100
+    }
+
+    options.from && (params.fromTime = options.from)
+    options.to && (params.toTime = options.to)
+    options.nodes && (params.source = options.nodes)
+
+    return this.request('GET', 'events', params, options)
+      .then(function (response) {
+        var data = response.data.events
+        return normalizeResponse(data, response, options)
+      })
+  }
+
+  /**
+   * Make a get channels request.
+   *
+   * @return {Promise} A promise for an array of channels.
+   */
+  this.getTimeSeriesData = function (nodeId, options) {
+    options = options || {}
+
+    var params = {
+      start: options.from ? options.from : Date.now() - 60000 * 60 * 24,
+      timeUnit: options.unit ? options.unit : 'SECONDS',
+      rate: options.interval ? options.interval : 1,
+      operation: 'AVG',
+    }
+
+    var type = options.type ? options.type : 'temperature'
+    var channelId = type + '@' + nodeId
+    return this.request('GET', 'channels/' + channelId, params, options)
+      .then(function (response) {
+        var data = response.data.channels
+        return normalizeResponse(data, response, options)
       })
   }
 
@@ -536,11 +654,18 @@ var Hive = function () {
    * @return {Promise} Axios request promise chain.
    */
   this.request = function (method, path, data, options) {
-    return client.request(Hive.extend({
+    var settings = {
       method: method,
       url: path,
-      data: data,
-    }, options))
+    }
+    if (data != null) {
+      if (method.toUpperCase() === 'GET') {
+        settings.params = data
+      } else {
+        settings.data = data
+      }
+    }
+    return client.request(Hive.extend(settings, options))
       .catch(normalizeError)
   }
 
@@ -621,11 +746,12 @@ Hive.extend = function () {
   return target
 }
 
-var instance = null
+var instance
 
-Hive.getInstance = function () {
+Hive.getInstance = function (options) {
+  console.log('Called', Date.now(), options)
   if (instance == null) {
-    instance = new Hive()
+    instance = new Hive(options)
   }
   return instance
 }

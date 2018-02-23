@@ -40,9 +40,9 @@ window.Promise || document.write('<script src="https://cdn.jsdelivr.net/npm/prom
   var events = function () {
 
     $("[name=listDevices]").on("click", function (event) {
-      hive.loadNodes()
-        .then(function (response) {
-          console.log('Nodes (devices)', hive.nodes);
+      hive.getDevices()
+        .then(function (data) {
+          console.log('Devices', data);
         });
     });
 
