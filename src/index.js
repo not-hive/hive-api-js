@@ -629,10 +629,10 @@ var Hive = function (options) {
     options = options || {}
 
     var params = {
-      start: options.from ? options.from : Date.now() - 60000 * 60 * 24,
+      start: options.from ? options.from : Date.now() - 60000 * 60, // 1 hour
       timeUnit: options.unit ? options.unit : 'SECONDS',
       rate: options.interval ? options.interval : 1,
-      operation: 'AVG',
+      operation: options.value ? options.value : 'AVG',
     }
 
     var type = options.type ? options.type : 'temperature'
