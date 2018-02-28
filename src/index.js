@@ -162,6 +162,10 @@ var Hive = function (options) {
     this.name = node.name
   }
 
+  DeviceProto.lastSeen = function () {
+    return this.node.lastSeen
+  }
+
   DeviceProto.reload = function (options) {
     var _this = this
     return Hive.getInstance().getNode(this.id, options)
@@ -216,11 +220,13 @@ var Hive = function (options) {
     boost = getReportedValues(features.transient_mode_v1, {
       actions: 'actions',
       duration: 'duration', // seconds
-      startDateTime: 'startDateTime', // ISO format e.g. 2018-02-19T15:38:49.972+0000
-      endDateTime: 'endDateTime',
+      start: 'startDatetime', // ISO format e.g. 2018-02-19T15:38:49.972+0000
+      end: 'endDatetime',
     })
+    boost.start = boost.start && Date.parse(boost.start)
+    boost.end = boost.end && Date.parse(boost.end)
     if (boost.actions[0].attribute === 'targetHeatTemperature') {
-      boost.targetTemperature = boost.actions[0].value
+      boost.targetTemperature = Number.parseFloat(boost.actions[0].value)
     } else {
       boost.targetAttribute = boost.actions[0].attribute
       boost.targetValue = boost.actions[0].value
@@ -230,15 +236,19 @@ var Hive = function (options) {
   }
 
   Device.getCurrentTemperature = function (node) {
-    var report = node && node.features && node.features.temperature_sensor_v1
-      && node.features.temperature_sensor_v1.temperature
-    if (report) {
-      return {
-        value: report.reportedValue,
-        time: report.reportReceivedTime,
-      }
+    try {
+      return Number.parseFloat(node.features.temperature_sensor_v1.temperature.reportedValue)
+    } catch (error) {
+      return null
     }
-    return {}
+  }
+
+  Device.getCurrentTemperatureTime = function (node) {
+    try {
+      return node.features.temperature_sensor_v1.temperature.reportReceivedTime
+    } catch (error) {
+      return null
+    }
   }
 
   Device.getEthernetInfo = function (node) {
@@ -297,8 +307,15 @@ var Hive = function (options) {
   }
 
   Device.getFrostProtectTemperature = function (node) {
-    var features = node.features ? node.features : {}
-    return getReportedValue(features.frost_protect_v1, 'frostProtectTemperature')
+    try {
+      return Number.parseFloat(node.features.frost_protect_v1.frostProtectTemperature.reportedValue)
+    } catch (error) {
+      return null
+    }
+  }
+
+  Device.isFrostProtect = function (node) {
+    return (Device.getTargetTemperature(node) === 1)
   }
 
   Device.getHeatingSchedule = function (node) {
@@ -320,13 +337,11 @@ var Hive = function (options) {
     var status = getReportedValues(features.heating_thermostat_v1, {
       mode: 'operatingMode', // SCHEDULE, MANUAL - set to OFF later
       isOn: 'operatingState', // HEAT, OFF
-      targetTemperature: 'targetHeatTemperature',
     })
     status.isOn = status.isOn === 'HEAT'
     // If the thermostat is set to OFF we need to override the reported values.
     if (getReportedValue(features.on_off_device_v1, 'mode') === 'OFF') {
       status.mode = 'OFF'
-      status.targetTemperature = Device.getFrostProtectTemperature(node)
     }
     return status
   }
@@ -339,6 +354,14 @@ var Hive = function (options) {
   Device.getSignalStrength = function (node) {
     var features = node.features ? node.features : {}
     return getReportedValue(features.radio_device_v1, 'signalStrength')
+  }
+
+  Device.getTargetTemperature = function (node) {
+    try {
+      return Number.parseFloat(node.features.heating_thermostat_v1.targetHeatTemperature.reportedValue)
+    } catch (error) {
+      return null
+    }
   }
 
   Device.getTemperatureUnit = function (node) {
@@ -418,6 +441,14 @@ var Hive = function (options) {
       return Device.getCurrentTemperature(this.node)
     }
 
+    this.getFrostProtectTemperature = function () {
+      return Device.getFrostProtectTemperature(this.node)
+    }
+
+    this.isFrostProtect = function () {
+      return Device.isFrostProtect(this.node)
+    }
+
     this.getHeatingStatus = function () {
       return Device.getHeatingStatus(this.node)
     }
@@ -432,6 +463,10 @@ var Hive = function (options) {
 
     this.getOnOff = function () {
       return Device.getOnOff(this.node)
+    }
+
+    this.getTargetTemperature = function () {
+      return Device.getTargetTemperature(this.node)
     }
 
     this.setTargetTemperature = function (value) {
