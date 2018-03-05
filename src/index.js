@@ -674,7 +674,13 @@ var Hive = function (options) {
     var channelId = type + '@' + nodeId
     return this.request('GET', 'channels/' + channelId, params, options)
       .then(function (response) {
-        var data = response.data.channels
+        var data = response.data.channels[0]
+        var values = data.values
+        var valuesArray = []
+        for (var key in values) {
+          valuesArray.push([Number.parseInt(key), values[key]])
+        }
+        data.data = valuesArray
         return normalizeResponse(data, response, options)
       })
   }
