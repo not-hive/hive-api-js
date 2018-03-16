@@ -358,7 +358,9 @@ var Hive = function (options) {
 
   Device.getTargetTemperature = function (node) {
     try {
-      return Number.parseFloat(node.features.heating_thermostat_v1.targetHeatTemperature.reportedValue)
+      // When it has just been set, .propertyStatus is PENDING and .targetValue = .displayValue =
+      // the new value. .reportedValue is the OLD value.
+      return Number.parseFloat(node.features.heating_thermostat_v1.targetHeatTemperature.displayValue)
     } catch (error) {
       return null
     }
@@ -395,6 +397,8 @@ var Hive = function (options) {
     }
     return Hive.getInstance().request('PUT', path, data)
       .then(function (response) {
+        // The response is the same as for get.
+        return response
         // @TODO parse response?
       }).catch(function (error) {
         // @TODO parse error?
@@ -470,7 +474,12 @@ var Hive = function (options) {
     }
 
     this.setTargetTemperature = function (value) {
+      var that = this
       return Device.setTargetTemperature(this.node, value)
+        .then(function (response) {
+          that.node = response.data.nodes[0]
+          return that.getTargetTemperature()
+        })
     }
 
   }
