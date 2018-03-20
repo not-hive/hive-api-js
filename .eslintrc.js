@@ -19,6 +19,10 @@ module.exports = {
           classes: 'always',
         }
       ],
+      'semi': [
+        'error',
+        'always',
+      ],
   },
 
 }
