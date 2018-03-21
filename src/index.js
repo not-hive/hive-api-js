@@ -679,6 +679,8 @@ var Hive = function (options) {
       operation: options.value ? options.value : 'AVG',
     };
 
+    params.end = options.to || params.start + 60000 * 60 * 24; // 1 day
+
     var type = options.type ? options.type : 'temperature';
     var channelId = type + '@' + nodeId;
     return this.request('GET', 'channels/' + channelId, params, options)
