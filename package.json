@@ -1,11 +1,11 @@
 {
   "name": "hive-home",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A wrapper for the Hive Home API.",
   "main": "src/index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/not-hive/hive-api-js.git"
+    "url": "https://github.com/not-hive/hive-home.git"
   },
   "scripts": {
     "test": "mocha test/specs"
