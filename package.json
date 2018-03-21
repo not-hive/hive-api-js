@@ -1,6 +1,6 @@
 {
   "name": "hive-home",
-  "version": "0.8.0-dev",
+  "version": "1.0.0",
   "description": "A wrapper for the Hive Home API.",
   "main": "src/index.js",
   "repository": {
@@ -15,11 +15,11 @@
   "devDependencies": {
     "browserify": "^15.2.0",
     "chai": "^4.1.2",
-    "eslint": "^4.18.1",
+    "eslint": "^4.19.0",
     "eslint-config-standard": "^11.0.0",
     "eslint-plugin-import": "^2.9.0",
     "eslint-plugin-node": "^6.0.1",
-    "eslint-plugin-promise": "^3.6.0",
+    "eslint-plugin-promise": "^3.7.0",
     "eslint-plugin-standard": "^3.0.1",
     "gulp": "^3.9.1",
     "gulp-clean": "^0.4.0",
@@ -28,7 +28,7 @@
     "gulp-rename": "^1.2.2",
     "gulp-sourcemaps": "^1.12.1",
     "gulp-uglify": "^3.0.0",
-    "mocha": "^5.0.1",
+    "mocha": "^5.0.4",
     "vinyl-buffer": "^1.0.1",
     "vinyl-source-stream": "^2.0.0"
   },

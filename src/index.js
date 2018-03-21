@@ -808,7 +808,7 @@ Hive.getInstance = function (options) {
 };
 
 /** @var {string} Hive.VERSION Version number. */
-Hive.VERSION = '0.8.0-dev';
+Hive.VERSION = '1.0.0';
 
 if (typeof exports !== 'undefined') {
   if (typeof module !== 'undefined' && module.exports) {
