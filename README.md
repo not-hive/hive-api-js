@@ -2,7 +2,7 @@
 
 A wrapper for the Hive Home API.
 
-Version 1.0
+Version 1.1
 
 ## Installation
 Node.js
