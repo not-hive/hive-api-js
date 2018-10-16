@@ -1,13 +1,8 @@
 
-/* eslint-env mocha */
-var chai = require("chai");
-var expect = chai.expect;
+const Hive = require('../../src/index.js');
 
-var Hive = require("../../src/index.js");
-
-describe("Hive", function () {
-  "use strict";
-  it("should have a version", function () {
-    expect(Hive).to.have.property("VERSION");
+describe('Hive', () => {
+  it('should have a version', () => {
+    expect(Hive).toHaveProperty('VERSION');
   });
 });

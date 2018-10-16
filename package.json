@@ -8,31 +8,22 @@
     "url": "https://github.com/not-hive/hive-home.git"
   },
   "scripts": {
-    "test": "mocha test/specs"
+    "lint": "eslint .",
+    "build": "webpack",
+    "test": "jest"
   },
   "author": "Paul Bloomfield",
   "license": "MIT",
   "devDependencies": {
-    "browserify": "^15.2.0",
-    "chai": "^4.1.2",
-    "eslint": "^4.19.0",
-    "eslint-config-standard": "^11.0.0",
-    "eslint-plugin-import": "^2.9.0",
-    "eslint-plugin-node": "^6.0.1",
-    "eslint-plugin-promise": "^3.7.0",
-    "eslint-plugin-standard": "^3.0.1",
-    "gulp": "^3.9.1",
-    "gulp-clean": "^0.4.0",
-    "gulp-eslint": "^4.0.2",
-    "gulp-mocha": "^5.0.0",
-    "gulp-rename": "^1.2.2",
-    "gulp-sourcemaps": "^1.12.1",
-    "gulp-uglify": "^3.0.0",
-    "mocha": "^5.0.4",
-    "vinyl-buffer": "^1.0.1",
-    "vinyl-source-stream": "^2.0.0"
+    "eslint": "^5.7.0",
+    "eslint-config-airbnb-base": "^13.1.0",
+    "eslint-plugin-import": "^2.14.0",
+    "eslint-plugin-jest": "^21.25.0",
+    "jest": "^23.6.0",
+    "webpack": "^4.20.2",
+    "webpack-cli": "^3.1.2"
   },
   "dependencies": {
-    "axios": "^0.17.1"
+    "axios": "^0.18.0"
   }
 }
