@@ -803,6 +803,6 @@ Hive.getInstance = function (options) {
 };
 
 /** @var {string} Hive.VERSION Version number. */
-Hive.VERSION = '1.1.0';
+Hive.VERSION = '1.1.1-dev';
 
 module.exports = Hive;
