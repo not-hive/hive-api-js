@@ -1,6 +1,6 @@
 {
   "name": "hive-home",
-  "version": "1.1.1-dev",
+  "version": "1.2.0-dev",
   "description": "A wrapper for the Hive Home API.",
   "main": "src/index.js",
   "repository": {
@@ -10,7 +10,8 @@
   "scripts": {
     "lint": "eslint .",
     "build": "webpack",
-    "test": "jest"
+    "test": "jest --verbose ./test/unit-tests",
+    "live-test": "jest --verbose ./test/live-tests"
   },
   "author": "Paul Bloomfield",
   "license": "MIT",

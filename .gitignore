@@ -1,6 +1,8 @@
 
 node_modules/
 
+local.js
+
 # jsDoc output
 docs/jsdoc/
 docs/docco/
